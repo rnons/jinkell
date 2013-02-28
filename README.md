@@ -1,3 +1,3 @@
 ## Jing.fm API文档
 
-<https://rnons.github.com/jinkell>
+<http://rnons.github.com/jinkell>
