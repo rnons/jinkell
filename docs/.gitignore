@@ -1,0 +1,7 @@
+*swp
+*~
+_cache/
+_site/
+*.hi
+*.o
+hakyll
