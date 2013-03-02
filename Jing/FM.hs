@@ -53,7 +53,9 @@ createSession email pwd = do
     let param = [ ("email", email)
                 , ("pwd", pwd)
                 ]
-    let req = postRequestWithBody "http://jing.fm/api/v1/sessions/create" "application/x-www-form-urlencoded" (urlEncodeVars param)
+    let req = postRequestWithBody "http://jing.fm/api/v1/sessions/create" 
+                                  "application/x-www-form-urlencoded" 
+                                  (urlEncodeVars param)
     rsp <- simpleHTTP req
     json <- getResponseBody rsp
     let Right resp = rsp
@@ -68,13 +70,14 @@ createSession email pwd = do
     let header1 = mkHeader (HdrCustom "Jing-A-Token-Header") aToken
     let header2 = mkHeader (HdrCustom "Jing-R-Token-Header") rToken
     mheader <- newMVar [header1, header2]
-    silentlyModifyST $ \st -> st { uid = show $ id $ usr $ fromJust u
+    silentlyModifyST $ \st -> st { st_uid = show $ id $ usr $ fromJust u
                                  , st_nick = nick $ usr $ fromJust u
                                  , headers = mheader
                                  }               
     return ()
 
-getPlaylist keywords uid = do
+getPlaylist keywords = do
+    uid <- getsST st_uid
     let param = [ ("q", keywords)
                 , ("ps", "5")
                 , ("st", "0")
@@ -83,31 +86,37 @@ getPlaylist keywords uid = do
                 , ("mt", "")
                 , ("ss", "true")
                 ]
-    let url = "http://jing.fm/api/v1/search/jing/fetch_pls?" ++ urlEncodeVars param
-    let uri = fromJust $ parseURI url
-    h <- withST $ \st -> do
-        st_h <- readMVar (headers st)
-        return st_h
-
-    let req = Request { rqURI = uri, rqMethod = POST, rqHeaders = h, rqBody = urlEncodeVars param }
-    rsp <- simpleHTTP req
-    json <- getResponseBody rsp
-    --print json
+    json <- jingRequest "/search/jing/fetch_pls?" param
     let parsed = G.decode $ C.pack json :: Maybe Resp
         it = fmap items $ fmap result parsed
     return (fromJust it)
 
 getSongUrl mid = do
-    let url = "http://jing.fm/api/v1/media/song/surl?type=NO&mid=" ++ mid
-    let uri = fromJust $ parseURI url
-    h <- withST $ \st -> do
-        readMVar (headers st) >>= return
     let param = [("type", "NO"), ("mid", mid)]
-
-    let req = Request { rqURI = uri, rqMethod = POST, rqHeaders = h, rqBody = urlEncodeVars param }
-    rsp <- simpleHTTP req
-    json <- getResponseBody rsp
+    json <- jingRequest "/media/song/surl?" param
     let parsed = decode $ C.pack json :: Maybe (Map String Value)
     let (String surl) = (fromJust parsed) ! "result"
     return surl
+
+--postHeard :: IO String
+postHeard = do
+    uid <- getsST st_uid
+    tid <- getsST st_tid
+    let param = [("uid", uid), ("tid", tid)]
+    json <- jingRequest "/music/post_heard_song?" param    
+    putStrLn json
+
+
+jingRequest :: String -> [(String, String)] -> IO String
+jingRequest path param = do
+    h <- getsST headers >>= readMVar
+    putStrLn url
+    let req = Request { rqURI = uri, rqMethod = POST, rqHeaders = h, rqBody = "" } 
+    rsp <- simpleHTTP req
+    getResponseBody rsp
+  where
+    url = "http://jing.fm/api/v1" ++ path ++ urlEncodeVars param
+    uri = fromJust $ parseURI url
+
+
 

@@ -11,8 +11,11 @@ data JState = JState
     , readh           ::  MVar Handle
     , status          ::  Bool
     , headers         ::  MVar [Header]
-    , uid             ::  String
+    , st_uid          ::  String
     , st_nick         ::  String
+    , st_atn          ::  String
+    , st_n            ::  String
+    , st_tid          ::  String
     , st_s_picture    ::  String
     , st_s_albumtitle ::  String
     , st_s_album      ::  String
@@ -33,8 +36,11 @@ emptySt = JState
     , readh           =   unsafePerformIO newEmptyMVar
     , status          =   True
     , headers         =   unsafePerformIO newEmptyMVar
-    , uid             =   ""
-    , st_nick            =   ""
+    , st_uid          =   ""
+    , st_nick         =   ""
+    , st_atn          =   ""
+    , st_n            =   ""
+    , st_tid          =   ""
     , st_s_picture    =   ""
     , st_s_albumtitle =   ""
     , st_s_album      =   ""
