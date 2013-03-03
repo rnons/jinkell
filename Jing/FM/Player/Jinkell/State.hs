@@ -16,6 +16,7 @@ data JState = JState
     , st_atn          ::  String
     , st_n            ::  String
     , st_tid          ::  String
+    , st_cmbt         ::  String
     , st_s_picture    ::  String
     , st_s_albumtitle ::  String
     , st_s_album      ::  String
@@ -41,6 +42,7 @@ emptySt = JState
     , st_atn          =   ""
     , st_n            =   ""
     , st_tid          =   ""
+    , st_cmbt         =   ""
     , st_s_picture    =   ""
     , st_s_albumtitle =   ""
     , st_s_album      =   ""

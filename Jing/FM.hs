@@ -66,7 +66,8 @@ createSession email pwd = do
         r = fromJust d ! "result"
         u = G.decode (encode r) :: Maybe SessionResult
 
-    print $ "Welcom back, " ++ (nick $ usr $ fromJust u)
+    print $ "Welcome back, " ++ (nick $ usr $ fromJust u)
+    putStrLn "用大白话描述出你想听的音乐"
     let header1 = mkHeader (HdrCustom "Jing-A-Token-Header") aToken
     let header2 = mkHeader (HdrCustom "Jing-R-Token-Header") rToken
     mheader <- newMVar [header1, header2]
@@ -104,13 +105,14 @@ postHeard = do
     tid <- getsST st_tid
     let param = [("uid", uid), ("tid", tid)]
     json <- jingRequest "/music/post_heard_song?" param    
-    putStrLn json
+    --putStrLn json
+    return json
 
 
 jingRequest :: String -> [(String, String)] -> IO String
 jingRequest path param = do
     h <- getsST headers >>= readMVar
-    putStrLn url
+    --putStrLn url
     let req = Request { rqURI = uri, rqMethod = POST, rqHeaders = h, rqBody = "" } 
     rsp <- simpleHTTP req
     getResponseBody rsp

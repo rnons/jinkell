@@ -4,6 +4,7 @@ import Codec.Binary.UTF8.String (encodeString, decodeString)
 import Control.Concurrent
 import Control.Monad
 import Control.Monad.IO.Class (liftIO)
+import Control.Exception (bracketOnError)
 import System.Exit
 import System.IO
 import System.Process
@@ -29,15 +30,27 @@ main = do
     loop :: InputT IO ()
     loop = do
         minput <- getInputLine "♫♮ "
+        --outputStrLn $ fromJust minput
         case minput of
-            Nothing -> return ()
-            Just "pause" -> liftIO $ pause
-            Just "quit" -> do
-                liftIO $ send "quit"
+            Nothing -> do
+                liftIO $ exitImmediately ExitSuccess
                 return ()
+            Just "quit" -> liftIO $ do
+                exitImmediately ExitSuccess
+                return ()
+            Just "" -> loop
             Just input -> do
-                liftIO $ forkIO $ play input []
-                outputStrLn $ "Input was: " ++ input
+                liftIO $ do
+                    case input of
+                     "pause" -> pause
+                     "next" -> send "stop"
+                     "love" -> love
+                     "hate" -> hate
+                     _ -> do
+                         silentlyModifyST $ \st -> st { st_cmbt = input }
+                         forkIO $ play input []
+                         return ()
+                --outputStrLn $ "Input was: " ++ input
                 loop
 
 send msg = withST $ \st -> do
@@ -54,6 +67,32 @@ pause = do
               else do
                 silentlyModifyST $ \st -> st { status = True }
                 putStrLn "Playing"
+
+love = do
+    uid  <- getsST st_uid
+    tid  <- getsST st_tid
+    cmbt <- getsST st_cmbt
+    let param = [ ("uid", uid)
+                , ("tid", tid)
+                , ("c", "1")
+                , ("cmbt", cmbt)
+                , ("moodTagIds", "")
+                ]
+    jingRequest "/music/post_love_song?" param
+    return ()
+
+hate = do
+    uid  <- getsST st_uid
+    tid  <- getsST st_tid
+    cmbt <- getsST st_cmbt
+    let param = [ ("uid", uid)
+                , ("tid", tid)
+                , ("c", "1")
+                , ("cmbt", cmbt)
+                ]
+    jingRequest "/music/post_hate_song?" param
+    -- next song
+    send "stop"
 
 play keywords [] = do
     --getPlaylist (encodeString keywords) u_id >>= play keywords
@@ -74,6 +113,7 @@ play keywords (x:xs) = do
     silentlyModifyST $ \st -> st { st_tid = show $ tid x
                                  , st_atn = atn x
                                  , st_n   = n x
+                                 , status = True
                                  }
     withST $ \st -> do
         hin <- readMVar (writeh st)
@@ -82,10 +122,13 @@ play keywords (x:xs) = do
     play keywords xs
   where
     mpg123wait hin hout = do
+        --print line
         line <- hGetLine hout
         case line of
-             "EOF code: 1  " -> do
+             "EOF code: 1  " -> do      -- song end
                  postHeard
+                 return ExitSuccess
+             "EOF code: 4  " -> do      -- next song
                  return ExitSuccess
              _ -> mpg123wait hin hout
 
