@@ -1,7 +1,8 @@
 module Jing.FM.Player.Jinkell.State where
 
-import System.IO.Unsafe         (unsafePerformIO)
 import System.IO                (Handle)
+import System.Process        (ProcessHandle)
+import System.IO.Unsafe         (unsafePerformIO)
 
 import Control.Concurrent.MVar
 import Network.HTTP.Headers     (Header)
@@ -9,6 +10,7 @@ import Network.HTTP.Headers     (Header)
 data JState = JState 
     { writeh          ::  MVar Handle
     , readh           ::  MVar Handle
+    , mpHdl           ::  MVar ProcessHandle
     , status          ::  Bool
     , headers         ::  MVar [Header]
     , st_uid          ::  String
@@ -17,6 +19,7 @@ data JState = JState
     , st_n            ::  String
     , st_tid          ::  String
     , st_cmbt         ::  String
+    , st_ended        ::  MVar ()
     , st_s_picture    ::  String
     , st_s_albumtitle ::  String
     , st_s_album      ::  String
@@ -35,6 +38,7 @@ emptySt :: JState
 emptySt = JState 
     { writeh          =   unsafePerformIO newEmptyMVar
     , readh           =   unsafePerformIO newEmptyMVar
+    , mpHdl           =   unsafePerformIO newEmptyMVar
     , status          =   True
     , headers         =   unsafePerformIO newEmptyMVar
     , st_uid          =   ""
@@ -43,6 +47,7 @@ emptySt = JState
     , st_n            =   ""
     , st_tid          =   ""
     , st_cmbt         =   ""
+    , st_ended        =   unsafePerformIO newEmptyMVar
     , st_s_picture    =   ""
     , st_s_albumtitle =   ""
     , st_s_album      =   ""

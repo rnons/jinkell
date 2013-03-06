@@ -4,8 +4,6 @@ import Codec.Binary.UTF8.String (encodeString, decodeString)
 import Control.Concurrent
 import Control.Monad
 import Control.Monad.IO.Class (liftIO)
-import Control.Exception (bracketOnError)
-import System.Exit
 import System.IO
 import System.Process
 import System.Console.Haskeline
@@ -13,11 +11,12 @@ import Jing.FM.Player.Jinkell.State
 import Data.Maybe
 import Jing.FM
 import qualified Data.Text as T
-import System.Posix.Process (exitImmediately)
 
 main :: IO ()
 main = do
     forkIO mpgInit
+    forkIO mpWait
+    hSetBuffering stdout NoBuffering
     runInputT defaultSettings login
     runInputT defaultSettings loop
   where
@@ -30,14 +29,9 @@ main = do
     loop :: InputT IO ()
     loop = do
         minput <- getInputLine "♫♮ "
-        --outputStrLn $ fromJust minput
         case minput of
-            Nothing -> do
-                liftIO $ exitImmediately ExitSuccess
-                return ()
-            Just "quit" -> liftIO $ do
-                exitImmediately ExitSuccess
-                return ()
+            Nothing -> liftIO shutdown
+            Just "quit" -> liftIO shutdown
             Just "" -> loop
             Just input -> do
                 liftIO $ do
@@ -50,7 +44,6 @@ main = do
                          silentlyModifyST $ \st -> st { st_cmbt = input }
                          forkIO $ play input []
                          return ()
-                --outputStrLn $ "Input was: " ++ input
                 loop
 
 send msg = withST $ \st -> do
@@ -115,22 +108,9 @@ play keywords (x:xs) = do
                                  , st_n   = n x
                                  , status = True
                                  }
-    withST $ \st -> do
-        hin <- readMVar (writeh st)
-        hout <- readMVar (readh st)
-        mpg123wait hin hout
+    ended <- getsST st_ended
+    takeMVar ended
     play keywords xs
-  where
-    mpg123wait hin hout = do
-        --print line
-        line <- hGetLine hout
-        case line of
-             "EOF code: 1  " -> do      -- song end
-                 postHeard
-                 return ExitSuccess
-             "EOF code: 4  " -> do      -- next song
-                 return ExitSuccess
-             _ -> mpg123wait hin hout
 
 mpgInit = do
     let sh = "mplayer -msglevel global=6:statusline=6 -slave -idle -really-quiet -cache 2048 -cache-min 5 -novideo"
@@ -140,11 +120,29 @@ mpgInit = do
                                 , std_err = CreatePipe }
     mhin <- newMVar hin
     mhout <- newMVar hout
-    silentlyModifyST $ \st -> st { writeh = mhin, readh = mhout }
+    mhdl <- newMVar hdl
+    silentlyModifyST $ \st -> st { writeh = mhin
+                                 , readh = mhout
+                                 , mpHdl = mhdl }
     waitForProcess hdl
-    --hPutStrLn hin "stop"
-    hGetContents hout
-    hGetContents herr
-    hFlush hin
-    return ()
+    hClose herr
+
+mpWait = do
+    hout <- getsST readh >>= readMVar
+    ended <- getsST st_ended
+    line <- hGetLine hout
+    case line of
+         "EOF code: 1  " -> do      -- song end
+             postHeard
+             putMVar ended ()
+         "EOF code: 4  " -> do      -- next song
+             putMVar ended ()
+         _ -> return ()
+    mpWait
+
+shutdown = do
+    hdl <- getsST mpHdl >>= readMVar
+    terminateProcess hdl
+
+
 
