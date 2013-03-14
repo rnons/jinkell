@@ -7,11 +7,14 @@ import System.IO.Unsafe         (unsafePerformIO)
 import Control.Concurrent.MVar
 import Network.HTTP.Headers     (Header)
 
+import Jing.FM
+
 data JState = JState 
     { writeh          ::  MVar Handle
     , readh           ::  MVar Handle
     , mpHdl           ::  MVar ProcessHandle
     , status          ::  Bool
+    , token           ::  MVar Token
     , headers         ::  MVar [Header]
     , st_uid          ::  String
     , st_nick         ::  String
@@ -40,6 +43,7 @@ emptySt = JState
     , readh           =   unsafePerformIO newEmptyMVar
     , mpHdl           =   unsafePerformIO newEmptyMVar
     , status          =   True
+    , token           =   unsafePerformIO newEmptyMVar
     , headers         =   unsafePerformIO newEmptyMVar
     , st_uid          =   ""
     , st_nick         =   ""
