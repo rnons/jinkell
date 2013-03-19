@@ -22,9 +22,9 @@ data PlsItem = PlsItem
     , aid  :: Int       -- artist id
     , an   :: String    -- album name
     , atn  :: String    -- artist name
-    , b    :: String
     , d    :: String
     , fid  :: String
+    , fs   :: Int       -- file size
     , mid  :: String
     , n    :: String    -- song name
     , tid  :: Int
