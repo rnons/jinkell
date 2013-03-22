@@ -111,6 +111,18 @@ hate = do
     postHate tok param
     send "stop"     -- next song
 
+help :: IO ()
+help = do
+    putStrLn $ unlines msg
+  where
+    msg = [ "Commands:"
+          , "pause                  pause/play"
+          , "next                   next song"
+          , "love                   love current song"
+          , "hate                   hate current song"
+          , "help                   this message"
+          ]
+
 -- | All messages to `mplayer` is sent from here.
 send :: String -> IO ()
 send msg = withST $ \st -> do

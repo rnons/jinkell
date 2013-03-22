@@ -21,6 +21,8 @@
     cd jinkell
     cabal install
 
+名为*jinkell*的可执行文件会被安装到*~/.cabal/bin/*下。
+
 ### 功能
 
 - 登录Jing.fm

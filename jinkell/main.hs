@@ -42,6 +42,7 @@ main = do
                      "next" -> send "stop"
                      "love" -> love
                      "hate" -> hate
+                     "help" -> help
                      _ -> do
                          silentlyModifyST $ \st -> st { st_cmbt = input }
                          forkIO $ play input []
