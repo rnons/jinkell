@@ -2,7 +2,7 @@
 -- documentation, see http://haskell.org/cabal/users-guide/
 
 name:                jinkell
-version:             2013.3.16
+version:             2013.3.27
 synopsis:            jing.fm CLI client in Haskell
 -- description:         
 homepage:            https://github.com/rnons/jinkell
@@ -25,4 +25,6 @@ executable jinkell
                     , haskeline >= 0.7
                     , HTTP >= 4000.2
                     , jinglib >= 2013.3
+                    , mtl >= 2.1
+                    , lifted-base
     ghc-options:    -threaded

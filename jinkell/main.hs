@@ -25,8 +25,13 @@ main = do
         Just pwd <- getPassword Nothing "Password: "
         mtoken <- liftIO $ createSession email pwd
         case mtoken of
-             Just tok -> return tok
-             Nothing  -> login
+             Just tok -> do
+                 liftIO $ print $ "Welcome back, " ++ jingNick tok 
+                 liftIO $ putStrLn "用大白话描述出你想听的音乐"
+                 return tok
+             Nothing  -> do
+                 liftIO $ putStrLn "Invalid email or password!"
+                 login
 
 loop :: Token -> InputT IO ()
 loop tok = do
