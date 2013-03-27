@@ -1,5 +1,7 @@
 import Control.Concurrent
+import Control.Concurrent.Lifted
 import Control.Monad.IO.Class (liftIO)
+import Control.Monad.Reader
 import Data.Maybe (fromJust)
 import System.Console.Haskeline
 import System.IO
@@ -12,39 +14,37 @@ import Jing.FM.Player.Jinkell.State
 main :: IO ()
 main = do
     forkIO mpgInit
-    forkIO mpWait
     hSetBuffering stdout NoBuffering
-    runInputT defaultSettings login
-    runInputT defaultSettings loop
+    tok <- runInputT defaultSettings login
+    forkIO $ mpWait tok
+    runInputT defaultSettings $ loop tok
   where
-    login :: InputT IO ()
+    login :: InputT IO Token
     login = do
         Just email <- getInputLine "Email: "
         Just pwd <- getPassword Nothing "Password: "
-        tok <- liftIO $ createSession email pwd
-        liftIO $ do
-            mtok <- newMVar (fromJust tok)
-            silentlyModifyST $ \st -> st { token = mtok }
-            print $ "Welcome back, " ++ (jingNick $ fromJust tok)
-            putStrLn "用大白话描述出你想听的音乐"
-        return ()
-    loop :: InputT IO ()
-    loop = do
-        minput <- getInputLine "♫♮ "
-        case minput of
-            Nothing -> liftIO shutdown
-            Just "quit" -> liftIO shutdown
-            Just "" -> loop
-            Just input -> do
-                liftIO $ do
-                    case input of
-                     "pause" -> pause
-                     "next" -> send "stop"
-                     "love" -> love
-                     "hate" -> hate
-                     "help" -> help
-                     _ -> do
-                         silentlyModifyST $ \st -> st { st_cmbt = input }
-                         forkIO $ play input []
+        mtoken <- liftIO $ createSession email pwd
+        case mtoken of
+             Just tok -> return tok
+             Nothing  -> login
+
+loop :: Token -> InputT IO ()
+loop tok = do
+    minput <- getInputLine "♫♮ "
+    case minput of
+        Nothing -> liftIO shutdown
+        Just "quit" -> liftIO shutdown
+        Just "" -> loop tok
+        Just input -> do
+            lift $ flip runReaderT tok $ do
+                case input of
+                     "pause" -> lift pause
+                     "next"  -> lift $ send "stop"
+                     "love"  -> love
+                     "hate"  -> hate
+                     "help"  -> lift help
+                     _       -> do
+                         lift $ silentlyModifyST $ \st -> st { st_cmbt = input }
+                         fork $ play input []
                          return ()
-                loop
+            loop tok

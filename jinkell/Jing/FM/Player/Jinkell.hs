@@ -3,6 +3,7 @@ module Jing.FM.Player.Jinkell where
 import Codec.Binary.UTF8.String (encodeString, decodeString)
 import Control.Concurrent
 import Control.Monad
+import Control.Monad.Reader
 import qualified Data.Text as T
 import System.IO
 import System.Process
@@ -27,46 +28,44 @@ mpgInit = do
     hClose herr
 
 -- | If song endded or skipped, putMVar.
-mpWait = do
+mpWait tok = do
     hout <- getsST readh >>= readMVar
     line <- hGetLine hout
     case line of
          "EOF code: 1  " -> do      -- song end
              ended <- getsST st_ended
              tid <- getsST st_tid
-             tok <- getsST token >>= readMVar
              postHeard tok tid
              putMVar ended ()
          "EOF code: 4  " -> do      -- next song
              ended <- getsST st_ended
              putMVar ended ()
          _ -> return ()
-    mpWait
+    mpWait tok
 
 -- | If playlist is empty, fire `getPlaylist`.
 --   Otherwise, just play sequently.
-play :: String -> [PlsItem] -> IO ()
+play :: String -> [PlsItem] -> ReaderT Token IO ()
 play keywords [] = do
-    tok <- getsST token >>= readMVar
-    pls <- getPlaylist tok keywords
+    pls <- getPlaylist keywords
     case pls of
-        [] -> putStrLn "Nothing here" >> putStr "♫♮ "
+        [] -> lift $ putStrLn "Nothing here" >> putStr "♫♮ "
         _  -> play keywords pls
 play keywords (x:xs) = do
-    tok <- getsST token >>= readMVar
-    surl <- getSongUrl tok $ mid x
+    surl <- getSongUrl $ mid x
     --print surl
-    putStrLn $ (atn x) ++ " - " ++ (n x)
-    putStr "♫♮ "
     let input = "loadfile " ++ surl
-    send input
-    silentlyModifyST $ \st -> st { st_tid = show $ tid x
-                                 , st_atn = atn x
-                                 , st_n   = n x
-                                 , status = True
-                                 }
-    ended <- getsST st_ended
-    takeMVar ended      -- If song playing, block.
+    lift $ do
+        putStrLn $ (atn x) ++ " - " ++ (n x)
+        putStr "♫♮ "
+        send input
+        silentlyModifyST $ \st -> st { st_tid = show $ tid x
+                                     , st_atn = atn x
+                                     , st_n   = n x
+                                     , status = True
+                                     }
+        ended <- getsST st_ended
+        takeMVar ended      -- If song playing, block.
     play keywords xs
 
 pause :: IO ()
@@ -81,35 +80,34 @@ pause = do
                 putStrLn "Playing"
 
 -- | Love current playing song.
-love :: IO ()
+love :: ReaderT Token IO ()
 love = do
-    uid  <- getsST st_uid
-    tid  <- getsST st_tid
-    cmbt <- getsST st_cmbt
-    tok <- getsST token >>= readMVar
+    uid  <- liftIO $ getsST st_uid
+    tid  <- liftIO $ getsST st_tid
+    cmbt <- liftIO $ getsST st_cmbt
+
     let param = [ ("uid", uid)
                 , ("tid", tid)
                 , ("c", "1")
                 , ("cmbt", cmbt)
                 , ("moodTagIds", "")
                 ]
-    postLove tok param
+    postLove param
     return ()
 
 -- | Hate current playing song.
-hate :: IO ()
+hate :: ReaderT Token IO ()
 hate = do
-    uid  <- getsST st_uid
-    tid  <- getsST st_tid
-    cmbt <- getsST st_cmbt
-    tok <- getsST token >>= readMVar
+    uid  <- liftIO $ getsST st_uid
+    tid  <- liftIO $ getsST st_tid
+    cmbt <- liftIO $ getsST st_cmbt
     let param = [ ("uid", uid)
                 , ("tid", tid)
                 , ("c", "1")
                 , ("cmbt", cmbt)
                 ]
-    postHate tok param
-    send "stop"     -- next song
+    postHate param
+    liftIO $ send "stop"     -- next song
 
 help :: IO ()
 help = do
