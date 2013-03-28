@@ -1,10 +1,14 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Jing.FM.Player.Jinkell where
 
 import Codec.Binary.UTF8.String (encodeString, decodeString)
+import Control.Applicative
 import Control.Concurrent
 import Control.Monad
 import Control.Monad.Reader
+import qualified Data.Configurator as CF
 import qualified Data.Text as T
+import System.Directory (getHomeDirectory, doesFileExist)
 import System.IO
 import System.Process
 
@@ -109,16 +113,47 @@ hate = do
     postHate param
     liftIO $ send "stop"     -- next song
 
+readToken :: IO (Maybe Token)
+readToken = do
+    home <- getHomeDirectory
+    let path = home ++ "/.jinkell.cfg"
+    exist <- doesFileExist path
+    if exist 
+       then do
+            conf <- CF.load [ CF.Required path ]
+            atoken <- CF.lookup conf "token.atoken" :: IO (Maybe String)
+            rtoken <- CF.lookup conf "token.rtoken" :: IO (Maybe String)
+            uid <- CF.lookup conf "token.uid" :: IO (Maybe String)
+            nick <- CF.lookup conf "token.nick" :: IO (Maybe String)
+            return $ Token <$> atoken <*> rtoken <*> uid <*> nick
+       else return Nothing
+
+saveToken :: ReaderT Token IO ()
+saveToken = do
+    tok <- ask
+    liftIO $ do
+        home <- getHomeDirectory
+        writeFile (home ++ "/.jinkell.cfg") $ pprToken tok
+
+pprToken tok = unlines [ "token"
+                       , "{"
+                       , "    atoken = \"" ++ (jingAToken tok) ++ "\""
+                       , "    rtoken = \"" ++ (jingRToken tok) ++ "\""
+                       , "    uid    = \"" ++ jingUid tok ++ "\""
+                       , "    nick   = \"" ++ jingNick tok ++ "\""
+                       , "}" ]
+
 help :: IO ()
 help = do
     putStrLn $ unlines msg
   where
     msg = [ "Commands:"
-          , "pause                  pause/play"
-          , "next                   next song"
-          , "love                   love current song"
-          , "hate                   hate current song"
-          , "help                   this message"
+          , ":pause                  pause/play"
+          , ":next                   next song"
+          , ":love                   love current song"
+          , ":hate                   hate current song"
+          , ":save                   save email/password in $HOME/.jinkell.cfg"
+          , ":help                   this message"
           ]
 
 -- | All messages to `mplayer` is sent from here.

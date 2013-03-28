@@ -15,7 +15,12 @@ main :: IO ()
 main = do
     forkIO mpgInit
     hSetBuffering stdout NoBuffering
-    tok <- runInputT defaultSettings login
+    tok' <- readToken
+    tok <- case tok' of
+                Just t  -> return t
+                Nothing -> runInputT defaultSettings login
+    print $ "Welcome back, " ++ jingNick tok 
+    putStrLn "用大白话描述出你想听的音乐"
     forkIO $ mpWait tok
     runInputT defaultSettings $ loop tok
   where
@@ -26,8 +31,6 @@ main = do
         mtoken <- liftIO $ createSession email pwd
         case mtoken of
              Just tok -> do
-                 liftIO $ print $ "Welcome back, " ++ jingNick tok 
-                 liftIO $ putStrLn "用大白话描述出你想听的音乐"
                  return tok
              Nothing  -> do
                  liftIO $ putStrLn "Invalid email or password!"
@@ -43,12 +46,15 @@ loop tok = do
         Just input -> do
             lift $ flip runReaderT tok $ do
                 case input of
-                     "pause" -> lift pause
-                     "next"  -> lift $ send "stop"
-                     "love"  -> love
-                     "hate"  -> hate
-                     "help"  -> lift help
-                     _       -> do
+                     ":p"     -> lift pause
+                     ":n"     -> lift $ send "stop"
+                     ":pause" -> lift pause
+                     ":next"  -> lift $ send "stop"
+                     ":love"  -> love
+                     ":hate"  -> hate
+                     ":save"  -> saveToken
+                     ":help"  -> lift help
+                     _        -> do
                          lift $ silentlyModifyST $ \st -> st { st_cmbt = input }
                          fork $ play input []
                          return ()

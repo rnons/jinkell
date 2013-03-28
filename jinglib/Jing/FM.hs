@@ -51,7 +51,8 @@ data SessionResult = SessionResult
 
 -- | Every jingRequest needs the token_header.
 data Token = Token
-    { jingHeader :: [Header]
+    { jingAToken :: String
+    , jingRToken :: String
     , jingUid    :: String
     , jingNick   :: String 
     } deriving (Show)
@@ -79,9 +80,8 @@ createSession email pwd = do
                 d = decode $ C.pack json :: Maybe (Map String Value)
                 r = fromJust d ! "result"
                 u = G.decode (encode r) :: Maybe SessionResult
-                tokenA = mkHeader aHdr aToken
-                tokenR = mkHeader rHdr rToken
-            return $ Just Token { jingHeader = [tokenA, tokenR]
+            return $ Just Token { jingAToken = aToken
+                                , jingRToken = rToken
                                 , jingUid    = show $ id $ usr $ fromJust u
                                 , jingNick   = nick $ usr $ fromJust u
                                 }
@@ -136,11 +136,14 @@ postHate param = jingRequest path param
 jingRequest :: String -> [(String, String)] -> ReaderT Token IO String
 jingRequest path param = do
     tok <- ask
-    let h = jingHeader tok
-        req = Request { rqURI = uri, rqMethod = POST, rqHeaders = h, rqBody = "" } 
+    let tokenA = mkHeader aHdr $ jingAToken tok
+        tokenR = mkHeader rHdr $ jingRToken tok
+    let req = Request { rqURI = uri, rqMethod = POST, rqHeaders = [tokenA, tokenR], rqBody = "" } 
     rsp <- lift $ simpleHTTP req
     liftIO $ getResponseBody rsp
   where
     url = "http://jing.fm/api/v1" ++ path ++ urlEncodeVars param
     uri = fromJust $ parseURI url
+    aHdr = HdrCustom "Jing-A-Token-Header"
+    rHdr = HdrCustom "Jing-R-Token-Header"
 

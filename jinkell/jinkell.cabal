@@ -18,13 +18,15 @@ executable jinkell
     main-is:        main.hs        
     -- other-modules:       
     build-depends:    base >= 4.5
+                    , directory >= 1.1
                     , utf8-string >= 0.3
                     , transformers >= 0.3
                     , text >= 0.11
                     , process >= 1.1
                     , haskeline >= 0.7
                     , HTTP >= 4000.2
-                    , jinglib >= 2013.3
                     , mtl >= 2.1
                     , lifted-base
+                    , configurator >= 0.2
+                    , jinglib >= 2013.3
     ghc-options:    -threaded
