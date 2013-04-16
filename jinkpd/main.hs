@@ -1,30 +1,39 @@
 import Control.Concurrent
 import Control.Concurrent.Lifted hiding (newMVar)
-import Control.Monad.IO.Class (liftIO)
+import Control.Monad.IO.Class           (liftIO)
 import Control.Monad.Reader
-import Data.Maybe (fromJust)
+import Network.HTTP.Conduit             (newManager, def)
 import System.Console.Haskeline
+import System.Directory                 (createDirectoryIfMissing)
 import System.IO
-import System.Process
 
 import Jing.FM
 import Jing.FM.Player.Jinkpd
 import Jing.FM.Player.Jinkpd.State
 
-import Network.HTTP.Conduit (newManager, def)
 
 main :: IO ()
 main = do
+    {- Make sure ~/.jinkell exists. -}
+    exist <- getJinkellDir >>= createDirectoryIfMissing False
+    
+    {- Prompt display of current song title. -}
     hSetBuffering stdout NoBuffering
+    
+    {- TODO: check token is valid. -}
     tok' <- readToken
     tok <- case tok' of
                 Just t  -> return t
                 Nothing -> runInputT defaultSettings login
     print $ "Welcome back, " ++ jingNick tok 
     putStrLn "用大白话描述出你想听的音乐"
+    
+    {- Share a single Manager. -}
     mgr <- newManager $ def 
     mmgr <- newMVar mgr
     silentlyModifyST $ \st -> st { stMgr = mmgr }
+    
+    {- Main loop. -}
     runInputT defaultSettings $ loop tok
   where
     login :: InputT IO Token

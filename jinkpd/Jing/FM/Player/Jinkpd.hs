@@ -9,15 +9,13 @@ import Control.Monad.Reader
 import Data.Conduit
 import Data.Conduit.Binary (sinkFile)
 import qualified Data.Configurator as CF
-import qualified Data.Text as T
 import Network.HTTP.Conduit
 import qualified Network.MPD as MPD
-import System.Directory (getHomeDirectory, doesFileExist)
-import System.IO
-import System.Process
+import System.Directory (doesFileExist)
 
 import Jing.FM
 import Jing.FM.Player.Jinkpd.State
+
 
 
 -- | If playlist is empty, fire `getPlaylist`.
@@ -32,22 +30,27 @@ play keywords (x:xs) = do
     surl <- getSongUrl $ mid x
     --lift $ print surl
     lift $ do
-        manager <- getsST stMgr >>= readMVar
         putStrLn $ (atn x) ++ " - " ++ (n x)
         putStr "♫♮ "
         req <- parseUrl surl
-        hdl <- forkIO $ runResourceT $ do
-            response <- http req manager
-            responseBody response $$+- sinkFile "/home/rnons/Music/jinkell/jinkell.m4a"
-            lift $ do
-                d <- getsST downloaded
-                putMVar d ()
-        mhdl <- newMVar hdl
+        home <- getJinkellDir
+        manager <- getsST stMgr >>= readMVar
+        threadId <- forkIO $ do
+            runResourceT $ do
+                response <- http 
+                            req { responseTimeout = Just 10000000 }  
+                            manager
+                -- File streamed to ~/.jinkell/jinkell.m4a.
+                -- Don't Forget to sym link ~/.jinkell to music dir of mpd!
+                responseBody response $$+- sinkFile (home ++ "/jinkell.m4a")
+            d <- getsST downloaded
+            putMVar d ()
+        mtid <- newMVar threadId
         silentlyModifyST $ \st -> st { st_tid = show $ tid x
                                      , st_atn = atn x
                                      , st_n   = n x
                                      , status = True
-                                     , stHdl = mhdl
+                                     , stThreadId = mtid
                                      }
     lift $ do
         mpd'
@@ -124,8 +127,8 @@ hate = do
 
 readToken :: IO (Maybe Token)
 readToken = do
-    home <- getHomeDirectory
-    let path = home ++ "/.jinkell.cfg"
+    home <- getJinkellDir
+    let path = home ++ "/jinkell.cfg"
     exist <- doesFileExist path
     if exist
        then do
@@ -141,8 +144,8 @@ saveToken :: ReaderT Token IO ()
 saveToken = do
     tok <- ask
     liftIO $ do
-        home <- getHomeDirectory
-        writeFile (home ++ "/.jinkell.cfg") $ pprToken tok
+        home <- getJinkellDir
+        writeFile (home ++ "/jinkell.cfg") $ pprToken tok
 
 pprToken tok = unlines [ "token"
                        , "{"
@@ -166,7 +169,7 @@ help = do
           ]
 
 next = do
-    tid <- getsST stHdl >>= readMVar
+    tid <- getsST stThreadId >>= readMVar
     killThread tid                  -- Release response and file handler
     d <- getsST downloaded 
     bd <- isEmptyMVar d
