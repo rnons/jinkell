@@ -8,8 +8,8 @@ import System.IO
 import System.Process
 
 import Jing.FM
-import Jing.FM.Player.Jinmpd
-import Jing.FM.Player.Jinmpd.State
+import Jing.FM.Player.Jinkpd
+import Jing.FM.Player.Jinkpd.State
 
 import Network.HTTP.Conduit (newManager, def)
 
@@ -22,7 +22,7 @@ main = do
                 Nothing -> runInputT defaultSettings login
     print $ "Welcome back, " ++ jingNick tok 
     putStrLn "用大白话描述出你想听的音乐"
-    mgr <- newManager def
+    mgr <- newManager $ def 
     mmgr <- newMVar mgr
     silentlyModifyST $ \st -> st { stMgr = mmgr }
     runInputT defaultSettings $ loop tok

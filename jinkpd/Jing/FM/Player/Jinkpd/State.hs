@@ -1,9 +1,11 @@
-module Jing.FM.Player.Jinmpd.State where
+module Jing.FM.Player.Jinkpd.State where
 
 import Control.Concurrent.MVar
+import Control.Monad.Trans.Resource (ReleaseKey)
 import Network.HTTP.Conduit     (Manager)
 import Network.HTTP.Headers     (Header)
 import System.IO                (Handle)
+import Control.Concurrent       (ThreadId)
 import System.Process           (ProcessHandle)
 import System.IO.Unsafe         (unsafePerformIO)
 
@@ -11,6 +13,8 @@ import Jing.FM
 
 data JState = JState 
     { stMgr           ::  MVar Manager
+    , stKey           ::  MVar ReleaseKey
+    , stHdl           ::  MVar ThreadId
     , downloaded      ::  MVar ()
     , status          ::  Bool
     , st_uid          ::  String
@@ -36,6 +40,8 @@ data JState = JState
 emptySt :: JState
 emptySt = JState 
     { stMgr           =   unsafePerformIO newEmptyMVar
+    , stKey           =   unsafePerformIO newEmptyMVar
+    , stHdl           =   unsafePerformIO newEmptyMVar
     , downloaded      =   unsafePerformIO newEmptyMVar
     , status          =   True
     , st_uid          =   ""

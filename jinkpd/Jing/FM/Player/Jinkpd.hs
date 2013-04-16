@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Jing.FM.Player.Jinmpd where
+module Jing.FM.Player.Jinkpd where
 
 import Codec.Binary.UTF8.String (encodeString, decodeString)
 import Control.Applicative
@@ -17,7 +17,7 @@ import System.IO
 import System.Process
 
 import Jing.FM
-import Jing.FM.Player.Jinmpd.State
+import Jing.FM.Player.Jinkpd.State
 
 
 -- | If playlist is empty, fire `getPlaylist`.
@@ -36,16 +36,18 @@ play keywords (x:xs) = do
         putStrLn $ (atn x) ++ " - " ++ (n x)
         putStr "♫♮ "
         req <- parseUrl surl
-        forkIO $ runResourceT $ do
+        hdl <- forkIO $ runResourceT $ do
             response <- http req manager
             responseBody response $$+- sinkFile "/home/rnons/Music/jinkell/jinkell.m4a"
             lift $ do
                 d <- getsST downloaded
                 putMVar d ()
+        mhdl <- newMVar hdl
         silentlyModifyST $ \st -> st { st_tid = show $ tid x
                                      , st_atn = atn x
                                      , st_n   = n x
                                      , status = True
+                                     , stHdl = mhdl
                                      }
     lift $ do
         mpd'
@@ -65,40 +67,23 @@ mpd' = do
         _                  -> mpd'
 
 play' = do
-    threadDelay 3000000
-    s <- MPD.withMPD $ MPD.idle [MPD.PlayerS]       -- block until finished
-    --s <- MPD.withMPD $ MPD.idle []   -- block until finished
-    --liftIO $ print s
+    s <- MPD.withMPD $ MPD.idle [MPD.PlayerS]   -- block until paused/finished
     st <- MPD.withMPD MPD.status
     let st' = fmap MPD.stState st
-    --liftIO $ print st
     d <- getsST downloaded 
     bd <- isEmptyMVar d
-    if bd 
-       then do                                      -- Slow Network
-           MPD.withMPD $ MPD.play Nothing
-           play'
-       else takeMVar d                              -- Finished
-    {-
-    if (fmap MPD.stTime st == Right (0.0, 0))
-       then do
-            d <- getsST downloaded 
-            bd <- isEmptyMVar d
-            if bd 
-               then do
-                   MPD.withMPD $ MPD.play Nothing
-                   play'
-               else takeMVar d --return ()                           -- Finished
-       else do
-            -- Never get called!
-            MPD.withMPD $ MPD.pause True        -- Slow network
-            play'
-    -}
+    if st' == Right MPD.Stopped 
+        then if bd 
+                then do                                     -- Slow Network
+                    MPD.withMPD $ MPD.play Nothing
+                    play'
+                else do                                     -- Finished
+                    takeMVar d                              
+        else play'                                          -- Pause
 
 pause :: IO ()
 pause = do
     status <- getsST status
-    --MPD.withMPD $ MPD.pause True
     MPD.withMPD $ MPD.pause status
     if status then do
                 silentlyModifyST $ \st -> st { status = False }
@@ -180,7 +165,14 @@ help = do
           , ":help                   this message"
           ]
 
-next = MPD.withMPD MPD.stop >> return ()
+next = do
+    tid <- getsST stHdl >>= readMVar
+    killThread tid                  -- Release response and file handler
+    d <- getsST downloaded 
+    bd <- isEmptyMVar d
+    when bd $ do
+        putMVar d ()                -- Prevent play' from blocking
+    MPD.withMPD MPD.stop >> return ()
 
 shutdown :: IO ()
 shutdown = do
