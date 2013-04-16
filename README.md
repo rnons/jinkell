@@ -9,19 +9,36 @@
     cd jinglib
     cabal install
 
-## Jinkell: Jing.fm CLI 客户端
+## Jing.fm CLI 客户端
 
-**Note**: Jinkell使用mplayer的slave模式后台播放。
+目前有两个版本的CLI客户端，
 
-- jing.fm的音乐都是mp4(.m4a)格式的，mpg123播不了。
-- 最初计划使用mpd，但mpd无法stream远程的mp4文件。(mp4ff: faad2 error: Bitstream value not allowed by specification)。
+- Jinkell: 使用mplayer的slave模式后台播放。
+- Jinkpd: 使用mpd后台播放 (**推荐**，资源占用小)
 
 ### 安装
 
+    # install jinkell
     cd jinkell
     cabal install
+    # install jinkpd
+    cd jinkpd
+    cabal install
 
-名为*jinkell*的可执行文件会被安装到*~/.cabal/bin/*下。
+名为*jinkell*或*jinkpd*的可执行文件会被安装到*~/.cabal/bin/*路径下。
+
+### 配置
+
+jinkell不需要进行配置即可使用。
+
+jinkpd使用mpd作为播放器，首先需要配置好mpd, 可以参考[Arch Wiki: Mpd]。<br />
+其次，jinkpd使用[http-conduit]将音乐文件stream到*~/.jinkell/jinkell.m4a*，然后mpd才能进行播放。而mpd只支持一个root music directory，因此需要将*~/.jinkell/*软链接到mpd的music directory里。
+
+比如mpd的music directory位于*~/music*，则需要执行
+
+    ln -s ~/.jinkell ~/music/jinkell
+
+最后，在开启`jinkpd`之前，需要先开启`mpd`，才能正常收听。
 
 ### 功能
 
@@ -38,5 +55,11 @@
 - `:n` 或 `:next` 切歌
 - `:love` 标记喜欢
 - `:hate` 标记讨厌
-- `:save` 保存用户名/密码到*$HOME/.jinkell.cfg* （！明文！）
+- `:save` 保存"用户名/token"到*~/.jinkell/jinkell.cfg* （！明文！）
 - `:help` 帮助信息
+
+
+----
+
+[Arch Wiki: Mpd]: https://wiki.archlinux.org/index.php/Mpd
+[http-conduit]: http://hackage.haskell.org/package/http-conduit
