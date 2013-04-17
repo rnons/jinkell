@@ -1,5 +1,5 @@
 import Control.Concurrent
-import Control.Concurrent.Lifted hiding (newMVar)
+import Control.Concurrent.Lifted        (fork)
 import Control.Monad.IO.Class           (liftIO)
 import Control.Monad.Reader
 import Network.HTTP.Conduit             (newManager, def)
@@ -29,7 +29,7 @@ main = do
     putStrLn "用大白话描述出你想听的音乐"
     
     {- Share a single Manager. -}
-    mgr <- newManager $ def 
+    mgr <- newManager def 
     mmgr <- newMVar mgr
     silentlyModifyST $ \st -> st { stMgr = mmgr }
     
@@ -42,8 +42,7 @@ main = do
         Just pwd <- getPassword Nothing "Password: "
         mtoken <- liftIO $ createSession email pwd
         case mtoken of
-             Just tok -> do
-                 return tok
+             Just tok -> return tok
              Nothing  -> do
                  liftIO $ putStrLn "Invalid email or password!"
                  login
@@ -56,7 +55,7 @@ loop tok = do
         Just ":quit" -> liftIO shutdown
         Just "" -> loop tok
         Just input -> do
-            lift $ flip runReaderT tok $ do
+            lift $ flip runReaderT tok $ 
                 case input of
                      ":p"     -> lift pause
                      ":n"     -> lift next
@@ -67,7 +66,12 @@ loop tok = do
                      ":save"  -> saveToken
                      ":help"  -> lift help
                      _        -> do
-                         lift $ silentlyModifyST $ \st -> st { st_cmbt = input }
+                         lift $ do
+                            silentlyModifyST $ \st -> st { st_cmbt = input }
+                            tid <- getsST stThreadId 
+                            tidNull <- isEmptyMVar tid
+                            when (not tidNull) (readMVar tid >>= killThread)
+                         -- ToFix: terminate previous fork play
                          fork $ play input []
                          return ()
             loop tok

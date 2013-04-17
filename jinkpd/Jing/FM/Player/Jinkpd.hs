@@ -4,8 +4,11 @@ module Jing.FM.Player.Jinkpd where
 import Codec.Binary.UTF8.String (encodeString, decodeString)
 import Control.Applicative
 import Control.Concurrent
+import Control.Exception        (catch)
 import Control.Monad
 import Control.Monad.Reader
+import qualified Data.ByteString.Lazy as L
+import qualified Data.ByteString as B
 import Data.Conduit
 import Data.Conduit.Binary (sinkFile)
 import qualified Data.Configurator as CF
@@ -28,23 +31,28 @@ play keywords [] = do
         _  -> play keywords pls
 play keywords (x:xs) = do
     surl <- getSongUrl $ mid x
+    tok <- ask
     --lift $ print surl
     lift $ do
-        putStrLn $ (atn x) ++ " - " ++ (n x)
+        putStrLn $ atn x ++ " - " ++ n x
         putStr "♫♮ "
         req <- parseUrl surl
         home <- getJinkellDir
         manager <- getsST stMgr >>= readMVar
-        threadId <- forkIO $ do
-            runResourceT $ do
-                response <- http 
-                            req { responseTimeout = Just 10000000 }  
-                            manager
-                -- File streamed to ~/.jinkell/jinkell.m4a.
-                -- Don't Forget to sym link ~/.jinkell to music dir of mpd!
-                responseBody response $$+- sinkFile (home ++ "/jinkell.m4a")
-            d <- getsST downloaded
-            putMVar d ()
+        threadId <- forkIO $ catch 
+            (do
+                --simpleHttp surl >>= L.writeFile (home ++ "/jinkell.m4a")
+                runResourceT $ do 
+                    response <- http req manager
+                    -- File streamed to ~/.jinkell/jinkell.m4a.
+                    -- Don't Forget to sym link ~/.jinkell to music dir of mpd!
+                    responseBody response $$+- sinkFile (home ++ "/jinkell.m4a")
+                d <- getsST downloaded
+                putMVar d ())
+            (\e -> do
+                print (e :: HttpException)
+                runReaderT (play keywords xs) tok)
+                --next)
         mtid <- newMVar threadId
         silentlyModifyST $ \st -> st { st_tid = show $ tid x
                                      , st_atn = atn x
@@ -53,11 +61,11 @@ play keywords (x:xs) = do
                                      , stThreadId = mtid
                                      }
     lift $ do
-        mpd'
+        mpdLoad
         return ()
     play keywords xs
 
-mpd' = do
+mpdLoad = do
     threadDelay 1000000
     s <- MPD.withMPD $ do
             MPD.clear
@@ -67,12 +75,13 @@ mpd' = do
         Right [MPD.Path _] -> do
             MPD.withMPD $ MPD.play Nothing
             play'
-        _                  -> mpd'
+        _                  -> mpdLoad
 
 play' = do
     s <- MPD.withMPD $ MPD.idle [MPD.PlayerS]   -- block until paused/finished
     st <- MPD.withMPD MPD.status
     let st' = fmap MPD.stState st
+    --print st'
     d <- getsST downloaded 
     bd <- isEmptyMVar d
     if st' == Right MPD.Stopped 
@@ -80,8 +89,7 @@ play' = do
                 then do                                     -- Slow Network
                     MPD.withMPD $ MPD.play Nothing
                     play'
-                else do                                     -- Finished
-                    takeMVar d                              
+                else takeMVar d                             -- Finished
         else play'                                          -- Pause
 
 pause :: IO ()
@@ -149,15 +157,14 @@ saveToken = do
 
 pprToken tok = unlines [ "token"
                        , "{"
-                       , "    atoken = \"" ++ (jingAToken tok) ++ "\""
-                       , "    rtoken = \"" ++ (jingRToken tok) ++ "\""
+                       , "    atoken = \"" ++ jingAToken tok ++ "\""
+                       , "    rtoken = \"" ++ jingRToken tok ++ "\""
                        , "    uid    = \"" ++ jingUid tok ++ "\""
                        , "    nick   = \"" ++ jingNick tok ++ "\""
                        , "}" ]
 
 help :: IO ()
-help = do
-    putStrLn $ unlines msg
+help = putStrLn $ unlines msg
   where
     msg = [ "Commands:"
           , ":pause                  pause/play"
@@ -173,9 +180,8 @@ next = do
     killThread tid                  -- Release response and file handler
     d <- getsST downloaded 
     bd <- isEmptyMVar d
-    when bd $ do
-        putMVar d ()                -- Prevent play' from blocking
-    MPD.withMPD MPD.stop >> return ()
+    when bd $ putMVar d ()          -- Prevent play' from blocking
+    void $ MPD.withMPD MPD.stop
 
 shutdown :: IO ()
 shutdown = do
