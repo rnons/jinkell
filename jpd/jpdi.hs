@@ -8,8 +8,10 @@ import System.Directory                 (createDirectoryIfMissing)
 import System.IO
 
 import Jing.FM
-import Jing.FM.Player.Jinkpd
-import Jing.FM.Player.Jinkpd.State
+import Jing.FM.Player.Jpd.Core
+import Jing.FM.Player.Jpd.Interactive
+import Jing.FM.Player.Jpd.Utils
+import Jing.FM.Player.Jpd.State
 
 
 main :: IO ()

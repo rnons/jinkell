@@ -1,8 +1,7 @@
-module Jing.FM.Player.Jinkpd.State where
+module Jing.FM.Player.Jpd.State where
 
 import Control.Concurrent.MVar
 import Network.HTTP.Conduit     (Manager)
-import System.Directory         (getHomeDirectory)
 import Control.Concurrent       (ThreadId)
 import System.IO.Unsafe         (unsafePerformIO)
 
@@ -77,7 +76,3 @@ withST f = readMVar state >>= f
 silentlyModifyST :: (JState -> JState) -> IO ()
 silentlyModifyST  f = modifyMVar_ state (return . f)
 
-getJinkellDir :: IO FilePath
-getJinkellDir = do
-    home <- getHomeDirectory
-    return $ home ++ "/.jinkell"
