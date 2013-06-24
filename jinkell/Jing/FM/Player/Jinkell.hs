@@ -113,10 +113,15 @@ hate = do
     postHate param
     liftIO $ send "stop"     -- next song
 
+getJinkellDir :: IO FilePath
+getJinkellDir = do
+    home <- getHomeDirectory
+    return $ home ++ "/.jinkell"
+
 readToken :: IO (Maybe Token)
 readToken = do
-    home <- getHomeDirectory
-    let path = home ++ "/.jinkell.cfg"
+    home <- getJinkellDir
+    let path = home ++ "/jinkell.cfg"
     exist <- doesFileExist path
     if exist 
        then do
@@ -132,8 +137,8 @@ saveToken :: ReaderT Token IO ()
 saveToken = do
     tok <- ask
     liftIO $ do
-        home <- getHomeDirectory
-        writeFile (home ++ "/.jinkell.cfg") $ pprToken tok
+        home <- getJinkellDir
+        writeFile (home ++ "/jinkell.cfg") $ pprToken tok
 
 pprToken tok = unlines [ "token"
                        , "{"

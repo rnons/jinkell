@@ -13,8 +13,8 @@
 
 目前有两个版本的CLI客户端，
 
-- Jpd: 使用mpd后台播放 (**推荐**，资源占用小)
-- Jinkell: 使用mplayer的slave模式后台播放。(Legacy)
+- Jpd: 使用mpd后台播放 ( **推荐** ，资源占用小)
+- Jinkell: 使用mplayer的slave模式后台播放。
 
 Jpd (Jing.fm playing daemon) 有两种运行方式：
 
