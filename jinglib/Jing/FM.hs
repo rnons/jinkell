@@ -106,7 +106,7 @@ getPlaylist keywords = do
                 , ("mt", "")
                 , ("ss", "true")
                 ]
-    json <- jingRequest "/search/jing/fetch_pls?" param
+    json <- jingRequest "/search/jing/fetch_pls" param
     let parsed = G.decode $ C.pack json :: Maybe Resp
         it = fmap items $ fmap result parsed
     return (fromJust it)
@@ -138,11 +138,16 @@ jingRequest path param = do
     tok <- ask
     let tokenA = mkHeader aHdr $ jingAToken tok
         tokenR = mkHeader rHdr $ jingRToken tok
-    let req = Request { rqURI = uri, rqMethod = POST, rqHeaders = [tokenA, tokenR], rqBody = "" } 
+        typHdr = mkHeader HdrContentType "application/x-www-form-urlencoded; charset=UTF-8"
+        lenHdr = mkHeader HdrContentLength (show $ length $ urlEncodeVars param)
+    let req = Request { rqURI = uri
+                      , rqMethod = POST
+                      , rqHeaders = [tokenA, tokenR, typHdr, lenHdr]
+                      , rqBody = urlEncodeVars param } 
     rsp <- lift $ simpleHTTP req
     liftIO $ getResponseBody rsp
   where
-    url = "http://jing.fm/api/v1" ++ path ++ urlEncodeVars param
+    url = "http://jing.fm/api/v1" ++ path 
     uri = fromJust $ parseURI url
     aHdr = HdrCustom "Jing-A-Token-Header"
     rHdr = HdrCustom "Jing-R-Token-Header"
