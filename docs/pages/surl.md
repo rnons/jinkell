@@ -20,6 +20,7 @@ title: POST /media/song/surl
 
 ### type
 
+- 含义: NO表示高音质，MM表示普通音质
 - 默认: NO
 
 ## 返回结果
