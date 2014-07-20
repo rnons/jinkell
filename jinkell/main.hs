@@ -19,7 +19,7 @@ main = do
     tok <- case tok' of
                 Just t  -> return t
                 Nothing -> runInputT defaultSettings login
-    print $ "Welcome back, " ++ jingNick tok 
+    putStrLn $ "Welcome back, " ++ jingNick tok
     putStrLn "用大白话描述出你想听的音乐"
     forkIO $ mpWait tok
     runInputT defaultSettings $ loop tok
