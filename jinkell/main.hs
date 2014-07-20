@@ -1,11 +1,8 @@
 import Control.Concurrent
 import Control.Concurrent.Lifted
-import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Reader
-import Data.Maybe (fromJust)
 import System.Console.Haskeline
 import System.IO
-import System.Process
 
 import Jing.FM
 import Jing.FM.Player.Jinkell
@@ -30,8 +27,7 @@ main = do
         Just pwd <- getPassword Nothing "Password: "
         mtoken <- liftIO $ createSession email pwd
         case mtoken of
-             Just tok -> do
-                 return tok
+             Just tok -> return tok
              Nothing  -> do
                  liftIO $ putStrLn "Invalid email or password!"
                  login
@@ -44,7 +40,7 @@ loop tok = do
         Just "quit" -> liftIO shutdown
         Just "" -> loop tok
         Just input -> do
-            lift $ flip runReaderT tok $ do
+            lift $ flip runReaderT tok $
                 case input of
                      ":p"     -> lift pause
                      ":n"     -> lift $ send "stop"

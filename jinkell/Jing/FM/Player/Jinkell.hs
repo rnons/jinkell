@@ -1,13 +1,10 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Jing.FM.Player.Jinkell where
 
-import Codec.Binary.UTF8.String (encodeString, decodeString)
 import Control.Applicative
 import Control.Concurrent
-import Control.Monad
 import Control.Monad.Reader
 import qualified Data.Configurator as CF
-import qualified Data.Text as T
 import System.Directory (getHomeDirectory, doesFileExist)
 import System.IO
 import System.Process
@@ -16,6 +13,7 @@ import Jing.FM
 import Jing.FM.Player.Jinkell.State
 
 
+mpgInit :: IO ()
 mpgInit = do
     let sh = "mplayer -msglevel global=6:statusline=6 -slave -idle -really-quiet -cache 2048 -cache-min 5 -novideo"
     (Just hin, Just hout, Just herr, hdl) <-
@@ -32,6 +30,7 @@ mpgInit = do
     hClose herr
 
 -- | If song endded or skipped, putMVar.
+mpWait :: Token -> IO a
 mpWait tok = do
     hout <- getsST readh >>= readMVar
     line <- hGetLine hout
@@ -60,7 +59,7 @@ play keywords (x:xs) = do
     --print surl
     let input = "loadfile " ++ surl
     lift $ do
-        putStrLn $ (atn x) ++ " - " ++ (n x)
+        putStrLn $ atn x ++ " - " ++ n x
         putStr "♫♮ "
         send input
         silentlyModifyST $ \st -> st { st_tid = show $ tid x
@@ -123,7 +122,7 @@ readToken = do
     home <- getJinkellDir
     let path = home ++ "/jinkell.cfg"
     exist <- doesFileExist path
-    if exist 
+    if exist
        then do
             conf <- CF.load [ CF.Required path ]
             atoken <- CF.lookup conf "token.atoken" :: IO (Maybe String)
@@ -140,17 +139,17 @@ saveToken = do
         home <- getJinkellDir
         writeFile (home ++ "/jinkell.cfg") $ pprToken tok
 
+pprToken :: Token -> String
 pprToken tok = unlines [ "token"
                        , "{"
-                       , "    atoken = \"" ++ (jingAToken tok) ++ "\""
-                       , "    rtoken = \"" ++ (jingRToken tok) ++ "\""
+                       , "    atoken = \"" ++ jingAToken tok ++ "\""
+                       , "    rtoken = \"" ++ jingRToken tok ++ "\""
                        , "    uid    = \"" ++ jingUid tok ++ "\""
                        , "    nick   = \"" ++ jingNick tok ++ "\""
                        , "}" ]
 
 help :: IO ()
-help = do
-    putStrLn $ unlines msg
+help = putStrLn $ unlines msg
   where
     msg = [ "Commands:"
           , ":pause                  pause/play"
